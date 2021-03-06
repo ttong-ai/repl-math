@@ -26,8 +26,20 @@ def webhook():
 
   if tag == "add_two_numbers":
     sum = 0
-    num1 = float(intent_info.get('parameters').get('number1').get("resolvedValue"))
-    num2 = float(intent_info.get('parameters').get('number2').get("resolvedValue"))
+    exception = False
+
+    try:
+      num1 = float(intent_info.get('parameters').get('number1').get("resolvedValue"))
+    except Exception:
+      num1 = 0
+      exception = True
+
+    try:
+      num2 = float(intent_info.get('parameters').get('number2').get("resolvedValue"))
+    except Exception:
+      num2 = 0
+      exception = True
+
     sum = str(num1 + num2)
     print('here num1 = {0}'.format(num1))
     print('here num2 = {0}'.format(num2))
@@ -36,7 +48,9 @@ def webhook():
         "messages": [
           {
             "text": {
-              "text": ["I got the total as " + sum]
+              "text": [
+                f"I got the total as {sum}" if not exception 
+                else f"I might have missed something, but I got {sum}"]
             }
           }
         ],
