@@ -2,6 +2,7 @@ import datetime
 from flask import Flask, request
 import json
 import pytz
+from weather import get_weather
 
 
 app = Flask(__name__)
@@ -57,6 +58,7 @@ def webhook():
       },
       "sessionInfo": session_info
     }
+
   elif tag == "get_time":
     utc_now = pytz.utc.localize(datetime.datetime.utcnow())
     pst_now = utc_now.astimezone(pytz.timezone("America/Los_Angeles"))
@@ -72,6 +74,63 @@ def webhook():
       },
       "sessionInfo": session_info
     }
+
+  elif tag == "get_weather":
+    exception_city, exception_state, exception_country = False, False, False
+    try:
+      city = float(intent_info.get('parameters').get('geo-city').get("resolvedValue"))
+    except Exception:
+      try:
+        city = float(intent_info.get('parameters').get('geo-city').get("originalValue"))
+      except Exception:
+        city = "Santa Clara"
+        exception_city = True
+    try:
+      state = float(intent_info.get('parameters').get('geo-state').get("resolvedValue"))
+    except Exception:
+      try:
+        state = float(intent_info.get('parameters').get('geo-state').get("originalValue"))
+      except Exception:
+        state = "California"
+        exception_state = True
+    try:
+      country = float(intent_info.get('parameters').get('geo-country').get("resolvedValue"))
+    except Exception:
+      try:
+        country = float(intent_info.get('parameters').get('geo-country').get("originalValue"))
+      except Exception:
+        country = "USA"
+        exception_country = True
+    res = get_weather(city, state, country)
+    message =[]
+    message.append(f"In {city}, " if not exception_city else f"If you meant {city}, ")
+    message.append(f"{state}, " if not exception_state else f"{state} (I suppose), ")
+    if country != "USA":
+      message.append(f"{country}, " if not exception_country else f"{country} (I suppose), ")
+    try:
+      message.append(f"it has now {res['list'][0]['weather']['description']}. ")
+    except Exception:
+      print(json.dumps(res, indent=2))
+    try:
+      message.append(
+        f"The current temperature is {res['list'][0]['main']['temp']-273.15}."
+      )
+    except Exception:
+      print(json.dumps(res, indent=2))
+
+    return {
+      "fulfillmentResponse": {
+        "messages": [
+          {
+            "text": {
+              "text": message
+            }
+          }
+        ],
+      },
+      "sessionInfo": session_info
+    }
+
   else:
     return {
       "fulfillmentResponse": {
