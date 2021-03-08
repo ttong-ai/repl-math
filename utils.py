@@ -1,6 +1,7 @@
 from datetime import datetime, date, time, timedelta, timezone
 import logging
 from logging.handlers import SysLogHandler
+from pydantic import BaseModel
 from typing import List, Dict, Any, Union
 
 
@@ -89,3 +90,8 @@ def serializable(input: Any) -> Union[List, Dict, str, int, float, bool, None]:
             return str(input)
         except Exception:
             pass
+
+
+def ifnone(a: Any, b: Any) -> Any:
+    """`a` if `a` is not None, otherwise `b`."""
+    return b if a is None else a

@@ -2,15 +2,17 @@ import datetime
 from flask import Flask, request
 import json
 import pytz
+from utils import create_logger, ifnone
 from weather import get_weather
 
+logger = create_logger(__name__, "info")
 
 app = Flask(__name__)
 
 
 @app.route('/')
 def hello_world():
-  return "Hello world!"
+  return "Hello World!"
 
 
 @app.route('/webhook', methods=['POST'])
@@ -77,53 +79,62 @@ def webhook():
 
   elif tag == "get_weather":
     exception_city, exception_state, exception_country = False, False, False
-    try:
-      city = float(intent_info.get('parameters').get('geo-city').get("resolvedValue"))
-    except Exception:
-      try:
-        city = float(intent_info.get('parameters').get('geo-city').get("originalValue"))
-      except Exception:
-        city = "Santa Clara"
-        exception_city = True
-    try:
-      state = float(intent_info.get('parameters').get('geo-state').get("resolvedValue"))
-    except Exception:
-      try:
-        state = float(intent_info.get('parameters').get('geo-state').get("originalValue"))
-      except Exception:
-        state = "California"
-        exception_state = True
-    try:
-      country = float(intent_info.get('parameters').get('geo-country').get("resolvedValue"))
-    except Exception:
-      try:
-        country = float(intent_info.get('parameters').get('geo-country').get("originalValue"))
-      except Exception:
-        country = "USA"
-        exception_country = True
+    city = session_info.get('parameters').get('geo-city')
+    if isinstance(city, list):
+      city = city[0]
+    state = session_info.get('parameters').get('geo-state')
+    if isinstance(state, list):
+      state = state[0]
+    country = session_info.get('parameters').get('geo-country')
+    if isinstance(country, list):
+      country = country[0]
+
+    if not city:
+      city = "Santa Clara"
+      exception_city = True
+    elif not state and not country:
+      state, country = "California", "US"
+      exception_state, expception_country = True, True
+    elif state and not country:
+      pass
+    elif not state and country:
+      pass
+
     res = get_weather(city, state, country)
+    if res.get("city"):
+      country = res["city"]["country"]
+      exception_country = False
+      if country != "US":
+        state = None
+
     message =[]
     message.append(f"In {city}, " if not exception_city else f"If you meant {city}, ")
-    message.append(f"{state}, " if not exception_state else f"{state} (I suppose), ")
-    if country != "USA":
+    if state:
+      message.append(f"{state}, " if not exception_state else f"{state} (I suppose), ")
+    if country:
       message.append(f"{country}, " if not exception_country else f"{country} (I suppose), ")
     try:
-      message.append(f"it has now {res['list'][0]['weather']['description']}. ")
+      if "clouds" in res['list'][0]['weather'][0]['description'].lower():
+        message.append(f"it has some {res['list'][0]['weather'][0]['description']} and ")
+      elif "sky" in res['list'][0]['weather'][0]['description'].lower():
+        message.append(f"it has a {res['list'][0]['weather'][0]['description']} and ")
+      else:
+        message.append(f"it has {res['list'][0]['weather'][0]['description']} and ")
     except Exception:
-      print(json.dumps(res, indent=2))
+      logger.debug(json.dumps(res, indent=2))
     try:
       message.append(
-        f"The current temperature is {res['list'][0]['main']['temp']-273.15}."
+        f"the current temperature is {res['list'][0]['main']['temp']-273.15:.1f} °C."
       )
     except Exception:
-      print(json.dumps(res, indent=2))
+      logger.debug(json.dumps(res, indent=2))
 
     return {
       "fulfillmentResponse": {
         "messages": [
           {
             "text": {
-              "text": message
+              "text": ["".join(message)]
             }
           }
         ],
