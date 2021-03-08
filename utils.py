@@ -1,7 +1,6 @@
 from datetime import datetime, date, time, timedelta, timezone
 import logging
 from logging.handlers import SysLogHandler
-from pydantic import BaseModel
 from typing import List, Dict, Any, Union
 
 
@@ -80,8 +79,6 @@ def serializable(input: Any) -> Union[List, Dict, str, int, float, bool, None]:
         for k, v in input.items():
             output[k] = serializable(v)
         return output
-    if isinstance(input, BaseModel):
-        return input.dict()
     # For any other objects, if it has __dict__ attribute, then serialize
     try:
         return serializable(input.__dict__)
